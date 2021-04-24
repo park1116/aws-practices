@@ -1,0 +1,40 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "create an EC2 instance of the Amazon Linux 64bit AMI",
+    "Parameters": {
+        "KeyName": {
+            "Description": "the Key Pair for accessing to EC2 instance",
+            "Type": "String",
+            "Default": "mykey"
+        }
+    },
+    "Resources": {
+        "MyServer": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "ImageId": "ami-07464b2b9929898f8",
+                "InstanceType": "t2.micro",
+                "KeyName": {
+                    "Ref": "KeyName"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "InstanceId": {
+            "Description": "the instance's id of EC2 instance created newly",
+            "Value": {
+                "Ref": "MyServer"
+            }
+        },
+        "PublicName": {
+            "Description": "public name (connect via SSH as user ec2-user)",
+            "Value": {
+                "Fn::GetAtt": [
+                    "MyServer",
+                    "PublicDnsName"
+                ]
+            }
+        }
+    }
+}

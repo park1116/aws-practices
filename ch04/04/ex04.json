@@ -1,0 +1,100 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "create an EC2 instance of the Amazon Linux 64bit AMI",
+    "Parameters": {
+        "KeyName": {
+            "Description": "the Key Pair for accessing to EC2 instance",
+            "Type": "String",
+            "Default": "mykey"
+        },
+        "InstanceType": {
+            "Description": "Select one of the possible instance types",
+            "Type": "String",
+            "Default": "t2.micro",
+            "AllowedValues": [
+                "t2.micro",
+                "t2.small",
+                "t2.medium"
+            ]
+        },
+        "VPC": {
+            "Description": "Just select the one and only default VPC",
+            "Type": "AWS::EC2::VPC::Id",
+            "Default": "vpc-27cb4b4c"
+        }
+    },
+    "Resources": {
+        "SecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "My security group",
+                "GroupName": "MySecurityGroup",
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "FromPort": 22,
+                        "IpProtocol": "tcp",
+                        "ToPort": 22
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "FromPort": 3000,
+                        "IpProtocol": "tcp",
+                        "ToPort": 3000
+                    }
+                ]
+            }
+        },
+        "MyServer": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "ImageId": "ami-07464b2b9929898f8",
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "SecurityGroupIds": [
+                    {
+                        "Fn::GetAtt": [
+                            "SecurityGroup",
+                            "GroupId"
+                        ]
+                    }
+                ],
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash -ex\n",
+                                "curl -s https://raw.githubusercontent.com/kickscar/aws-practices/master/ch05/04/myapp-setup.sh | bash -ex\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "InstanceId": {
+            "Description": "the instance's id of EC2 instance created newly",
+            "Value": {
+                "Ref": "MyServer"
+            }
+        },
+        "PublicName": {
+            "Description": "public name (connect via SSH as user ec2-user)",
+            "Value": {
+                "Fn::GetAtt": [
+                    "MyServer",
+                    "PublicDnsName"
+                ]
+            }
+        }
+    }
+}
