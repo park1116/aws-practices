@@ -20,7 +20,7 @@
         "VPC": {
             "Description": "Just select the one and only default VPC",
             "Type": "AWS::EC2::VPC::Id",
-            "Default": "vpc-27cb4b4c"
+            "Default": "vpc-1ba72b70"
         }
     },
     "Resources": {
