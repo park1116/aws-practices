@@ -41,9 +41,9 @@
                     },
                     {
                         "CidrIp": "0.0.0.0/0",
-                        "FromPort": 3000,
+                        "FromPort": 8080,
                         "IpProtocol": "tcp",
-                        "ToPort": 3000
+                        "ToPort": 8080
                     }
                 ]
             }
@@ -72,7 +72,7 @@
                             "",
                             [
                                 "#!/bin/bash -ex\n",
-                                "curl -s https://raw.githubusercontent.com/kickscar/aws-practices/master/ch05/04/myapp-setup.sh | bash -ex\n"
+                                "curl -s https://raw.githubusercontent.com/park1116/aws-practices/master/myapp/setup.sh | bash -ex\n"
                             ]
                         ]
                     }
