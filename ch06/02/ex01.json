@@ -1,0 +1,246 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "Deploy Node Application(myapp) on EC2, RDS, S3",
+	"Parameters": {
+		"KeyName": {
+			"Description": "the Key Pair for Accessing to EC2 Instance",
+			"Type": "String"
+		},
+		"InstanceType": {
+			"Description": "One of the Possible Instance Types",
+			"Type": "String",
+			"Default": "t2.micro",
+			"AllowedValues": ["t2.micro", "t2.small", "t2.medium"]
+		},
+		"VPC": {
+			"Description": "VPC Id",
+			"Type": "AWS::EC2::VPC::Id"
+		},
+		"ServicePort": {
+			"Description": "Node Server Listen Port",
+			"Type": "Number"
+		},
+		"DBName": {
+			"Description": "MySQl DB Name of DBInstance",
+			"Type": "String"
+		},
+		"DBUserName": {
+			"Description": "MySQl DB User Name of DBInstance",
+			"Type": "String"
+		},
+		"DBUserPassword": {
+			"Description": "MySQl DB User Password of DBInstance",
+			"Type": "String"
+		},
+		"BucketName": {
+			"Description": "S3 Bucket Name",
+			"Type": "String"
+		}
+	},
+	"Resources": {
+		"NodeServerSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupDescription": "My Security Group",
+				"GroupName": "MySecurityGroup",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress": [{
+					"CidrIp": "0.0.0.0/0",
+					"FromPort": 22,
+					"IpProtocol": "tcp",
+					"ToPort": 22
+				}, {
+					"CidrIp": "0.0.0.0/0",
+					"FromPort": {"Ref":  "ServicePort"},
+					"IpProtocol": "tcp",
+					"ToPort": {"Ref":  "ServicePort"}
+				}]
+			}
+		},
+		"DatabaseSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupDescription": "Security Group of Database",
+				"VpcId": {"Ref": "VPC"},
+				"SecurityGroupIngress": [{
+					"CidrIp": "0.0.0.0/0",
+					"IpProtocol": "tcp",
+					"FromPort": "3306",
+					"ToPort": "3306"
+				}]
+			}
+		},
+		"Database": {
+			"Type": "AWS::RDS::DBInstance",
+			"DeletionPolicy": "Delete",
+			"Properties": {
+				"AllocatedStorage": "5",
+				"DBInstanceClass": "db.t2.micro",
+				"DBName": {"Ref": "DBName"},
+				"Engine": "MySQL",
+				"MasterUsername": {"Ref": "DBUserName"},
+				"MasterUserPassword": {"Ref": "DBUserPassword"},
+				"VPCSecurityGroups": [{"Fn::GetAtt": ["DatabaseSecurityGroup", "GroupId"]}]
+			}
+		},
+		"NodeServer": {
+			"Type": "AWS::EC2::Instance",
+			"Metadata": {
+				"AWS::CloudFormation::Init": {
+					"configSets": {
+						"config01": ["Install"]
+					},					
+					"Install": {
+						"packages": {
+							"yum": {
+								"nodejs" : []
+					  		}
+						},
+						"sources": {
+							"/usr/local/myapp": "https://github.com/aws-bitacademy/myapp4/tarball/master"
+						},
+						"files": {
+							"/usr/local/myapp/config/app.env": {
+								"content": {
+									"Fn::Join": ["", [
+										"PROFILE=production\n",
+										"LOG_LOCATION=logs\n",
+										"PORT=", {"Ref" : "ServicePort"}, "\n",
+										"MULTER_TEMPORARY_STORE=multer-temporary-store\n",
+										"STATIC_RESOURCES_DIRECTORY=public\n"
+									]]
+								},
+								"mode": "000644",
+								"owner": "root",
+								"group": "root"
+							},
+							"/usr/local/myapp/config/db.env": {
+								"content": {
+									"Fn::Join": ["", [
+										"DB_HOST=", {"Fn::GetAtt": ["Database", "Endpoint.Address"]}, "\n",
+										"DB_NAME=", {"Ref": "DBName"}, "\n",
+										"DB_USER=", {"Ref" : "DBUserName"}, "\n",
+										"DB_PASSWORD=", {"Ref": "DBUserPassword"}, "\n",
+										"TABLE_CREATE_ALWAYS=false\n",
+										"TABLE_ALTER_SYNC=true\n"
+									]]
+								},
+								"mode": "000644",
+								"owner": "root",
+								"group": "root"
+							},
+							"/usr/local/myapp/config/store.env": {
+								"content": {
+									"Fn::Join": ["", [
+										"AWS_REGION=", {"Ref": "AWS::Region"}, "\n",
+										"AWS_S3_BUCKET_NAME=", {"Ref": "BucketName"}, "\n",
+										"AWS_S3_BUKET_OBJECT_KEY_PREFIX=assets/photos\n"
+									]]
+								},
+								"mode": "000644",
+								"owner": "root",
+								"group": "root"
+							},
+							"/usr/lib/systemd/system/node-server.service": {
+								"content": {
+									"Fn::Join": ["", [
+										"[Unit]\n",
+										"After=network.target\n",
+										"\n",
+										"[Service]\n",
+										"ExecStart=/usr/bin/node /usr/local/myapp/index.js\n",
+										"Restart=always\n",
+										"StandardOutput=syslog\n",
+										"TimeoutSec=90\n",
+										"SyslogIdentifier=node-server\n",
+										"User=root\n",
+										"Group=root\n",
+										"Environment=PATH=/usr/bin:/usr/local/bin\n",
+										"\n",
+										"[Install]\n",
+										"WantedBy=multi-user.target\n"
+									]]
+								},
+								"mode": "000644",
+								"owner": "root",
+								"group": "root"
+							}
+						},
+						"commands": {
+							"01_create_s3_bucket": {
+								"command": {
+									"Fn::Join": ["", [
+										"/usr/bin/aws s3 mb s3://", {"Ref": "BucketName"},
+										" --region ", {"Ref": "AWS::Region"}
+									]]
+								},
+								"cwd": "/"
+							},
+							"02_install_dependency": {
+								"command": "/usr/bin/npm install",
+								"cwd": "/usr/local/myapp"
+							}
+						},
+						"services": {
+							"sysvinit": {
+								"node-server": {
+									"enabled": "true",
+									"ensureRunning": "true"
+								}
+							}
+						}
+					}
+				}
+			},
+			"Properties": {
+				"ImageId": "ami-07464b2b9929898f8",
+				"InstanceType": {
+					"Ref": "InstanceType"
+				},
+				"SecurityGroupIds" : [{
+					"Fn::GetAtt" : ["NodeServerSecurityGroup", "GroupId"]
+				}],				
+				"KeyName": {
+					"Ref": "KeyName"
+				},
+				"UserData": {
+					"Fn::Base64": {
+						"Fn::Join": [ "", [
+							"#!/bin/bash -ex\n",
+							"yum -y --security update\n",
+							"yum install -y aws-cfn-bootstrap\n",
+							"curl --silent --location https://rpm.nodesource.com/setup_12.x | bash - \n",
+							"/opt/aws/bin/cfn-init -v ",
+							" --stack ", {"Ref": "AWS::StackName"},
+							" --resource NodeServer ",
+							" --configsets config01 ",
+							" --region ", {"Ref": "AWS::Region"}, "\n"
+						]]
+					}	
+				}
+			}
+		}
+	},
+	"Outputs": {
+		"DatabaseEndpoint": {
+			"Description": "the RDS Endpoint of myapp MySql Created",
+			"Value": {
+				"Fn::GetAtt": ["Database", "Endpoint.Address"]
+			}
+		},
+		"NodeServerInstanceId": {
+			"Description": "the EC2 Instance Id of Node Server Created",
+			"Value": {
+				"Ref": "NodeServer"
+			}
+		},
+		"NodeServerPublicName": {
+			"Description": "Public Name(Connect via SSH as ec2-user Account)",
+			"Value": {
+				"Fn::GetAtt": ["NodeServer", "PublicDnsName"]
+			}
+		}
+	}
+}
