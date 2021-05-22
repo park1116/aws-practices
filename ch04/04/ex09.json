@@ -1,6 +1,6 @@
 {
 	"AWSTemplateFormatVersion": "2010-09-09",
-	"Description": "Deploy Web Application of HelloWorld on EC2 Instance of the Amazon Linux 64bit AMI",
+	"Description": "Deploy Node Application of myapp2 on EC2 instance of the Amazon Linux 64bit AMI",
 	"Parameters": {
 		"KeyName": {
 			"Description": "the Key Pair for Accessing to EC2 Instance",
@@ -15,7 +15,7 @@
 		"VPC": {
 			"Description": "VPC Id",
 			"Type": "AWS::EC2::VPC::Id"
-		}
+		}		       
 	},
 	"Resources": {
 		"SecurityGroup": {
@@ -33,48 +33,63 @@
 					"ToPort": 22
 				}, {
 					"CidrIp": "0.0.0.0/0",
-					"FromPort": 80,
+					"FromPort": 8080,
 					"IpProtocol": "tcp",
-					"ToPort": 80
+					"ToPort": 8080
 				}]
 			}
-		},
-		"WebServerInstance": {
+		}, 		
+		"NodeServerInstance": {
 			"Type": "AWS::EC2::Instance",
 			"Metadata": {
 				"AWS::CloudFormation::Init": {
 					"configSets": {
 						"config01": ["Install"]
-					},
+					},					
 					"Install": {
 						"packages": {
 							"yum": {
-								"httpd": []
+								"nodejs" : []
 					  		}
 						},
+						"sources": {
+							"/usr/local/myapp": "https://github.com/aws-bitacademy/myapp2/tarball/master"
+						},
 						"files": {
-							"/var/www/html/index.html": {
+							"/usr/lib/systemd/system/node-server.service": {
 								"content": {
 									"Fn::Join": ["", [
-										"<!DOCTYPE html>\n",
-										"<head>\n",
-										"    <meta charset=\"UTF-8\">\n",
-										"    <title>Title</title>\n",
-										"</head>\n",
-										"<body>\n",
-										"    <h1>Hello World</h1>\n",
-										"</body>\n",
-										"</html>\n"
+										"[Unit]\n",
+										"After=network.target\n",
+										"\n",
+										"[Service]\n",
+										"ExecStart=/usr/bin/node /usr/local/myapp/index.js\n",
+										"Restart=always\n",
+										"StandardOutput=syslog\n",
+										"TimeoutSec=90\n",
+										"SyslogIdentifier=node-server\n",
+										"User=root\n",
+										"Group=root\n",
+										"Environment=PATH=/usr/bin:/usr/local/bin\n",
+										"\n",
+										"[Install]\n",
+										"WantedBy=multi-user.target\n"
 									]]
 								},
 								"mode": "000644",
-								"owner": "apache",
-								"group": "apache"
+								"owner": "root",
+								"group": "root"
+							}
+						},
+						"commands": {
+							"01_install_dependency": {
+								"command": "/usr/bin/npm install",
+								"cwd": "/usr/local/myapp"
 							}
 						},
 						"services": {
 							"sysvinit": {
-								"httpd": {
+								"node-server": {
 									"enabled": "true",
 									"ensureRunning": "true"
 								}
@@ -90,7 +105,7 @@
 				},
 				"SecurityGroupIds" : [{
 					"Fn::GetAtt" : ["SecurityGroup", "GroupId"]
-				}],
+				}],				
 				"KeyName": {
 					"Ref": "KeyName"
 				},
@@ -99,13 +114,14 @@
 						"Fn::Join": [ "", [
 							"#!/bin/bash -ex\n",
 							"yum install -y aws-cfn-bootstrap\n",
+							"curl --silent --location https://rpm.nodesource.com/setup_7.x | bash - \n",
 							"/opt/aws/bin/cfn-init -v ",
 							" --stack ", {"Ref": "AWS::StackName"},
-							" --resource WebServerInstance ",
+							" --resource NodeServerInstance ",
 							" --configsets config01 ",
 							" --region ", {"Ref": "AWS::Region"}, "\n"
 						]]
-					}
+					}	
 				}
 			}
 		}
@@ -114,13 +130,13 @@
 		"InstanceId": {
 			"Description": "the Instance's Id of EC2 Instance Created Newly",
 			"Value": {
-				"Ref": "WebServerInstance"
+				"Ref": "NodeServerInstance"
 			}
 		},
 		"PublicName": {
 			"Description": "Public Name (Connect via SSH as User ec2-user)",
 			"Value": {
-				"Fn::GetAtt": ["WebServerInstance", "PublicDnsName"]
+				"Fn::GetAtt": ["NodeServerInstance", "PublicDnsName"]
 			}
 		}
 	}

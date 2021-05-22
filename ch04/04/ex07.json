@@ -1,9 +1,9 @@
 {
 	"AWSTemplateFormatVersion": "2010-09-09",
-	"Description": "Deploy Web Application of HelloWorld on EC2 Instance of the Amazon Linux 64bit AMI",
+	"Description": "Deploy Web Application of MySite on EC2 instance of the Amazon Linux 64bit AMI",
 	"Parameters": {
 		"KeyName": {
-			"Description": "the Key Pair for Accessing to EC2 Instance",
+			"Description": "the Key Pair for accessing to EC2 instance",
 			"Type": "String"
 		},
 		"InstanceType": {
@@ -15,7 +15,7 @@
 		"VPC": {
 			"Description": "VPC Id",
 			"Type": "AWS::EC2::VPC::Id"
-		}
+		}		       
 	},
 	"Resources": {
 		"SecurityGroup": {
@@ -38,39 +38,22 @@
 					"ToPort": 80
 				}]
 			}
-		},
+		}, 		
 		"WebServerInstance": {
 			"Type": "AWS::EC2::Instance",
 			"Metadata": {
 				"AWS::CloudFormation::Init": {
 					"configSets": {
 						"config01": ["Install"]
-					},
+					},					
 					"Install": {
 						"packages": {
 							"yum": {
 								"httpd": []
 					  		}
 						},
-						"files": {
-							"/var/www/html/index.html": {
-								"content": {
-									"Fn::Join": ["", [
-										"<!DOCTYPE html>\n",
-										"<head>\n",
-										"    <meta charset=\"UTF-8\">\n",
-										"    <title>Title</title>\n",
-										"</head>\n",
-										"<body>\n",
-										"    <h1>Hello World</h1>\n",
-										"</body>\n",
-										"</html>\n"
-									]]
-								},
-								"mode": "000644",
-								"owner": "apache",
-								"group": "apache"
-							}
+						"sources": {
+							"/var/www/html": "https://github.com/aws-bitacademy/mysite/tarball/master"
 						},
 						"services": {
 							"sysvinit": {
@@ -90,7 +73,7 @@
 				},
 				"SecurityGroupIds" : [{
 					"Fn::GetAtt" : ["SecurityGroup", "GroupId"]
-				}],
+				}],				
 				"KeyName": {
 					"Ref": "KeyName"
 				},
@@ -105,7 +88,7 @@
 							" --configsets config01 ",
 							" --region ", {"Ref": "AWS::Region"}, "\n"
 						]]
-					}
+					}	
 				}
 			}
 		}

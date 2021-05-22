@@ -1,6 +1,6 @@
 {
 	"AWSTemplateFormatVersion": "2010-09-09",
-	"Description": "Deploy Web Application of HelloWorld on EC2 Instance of the Amazon Linux 64bit AMI",
+	"Description": "Deploy Web Application of HelloWorld on EC2 instance of the Amazon Linux 64bit AMI",
 	"Parameters": {
 		"KeyName": {
 			"Description": "the Key Pair for Accessing to EC2 Instance",
@@ -54,19 +54,7 @@
 						},
 						"files": {
 							"/var/www/html/index.html": {
-								"content": {
-									"Fn::Join": ["", [
-										"<!DOCTYPE html>\n",
-										"<head>\n",
-										"    <meta charset=\"UTF-8\">\n",
-										"    <title>Title</title>\n",
-										"</head>\n",
-										"<body>\n",
-										"    <h1>Hello World</h1>\n",
-										"</body>\n",
-										"</html>\n"
-									]]
-								},
+								"source": "https://raw.githubusercontent.com/aws-bitacademy/aws-practices/master/ch04/04/index.html",
 								"mode": "000644",
 								"owner": "apache",
 								"group": "apache"
